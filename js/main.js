@@ -51,7 +51,8 @@
     }
 
     // 构造 VAO：按程序实际存在的 attribute 绑定
-    function makeVAO(prog, data) {
+    // drawMode：显式指定绘制模式（POINTS/LINE_LOOP/TRIANGLES），缺省按是否有索引推断
+    function makeVAO(prog, data, drawMode) {
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         const bind = (arr, attrName, size) => {
@@ -77,7 +78,8 @@
         return {
             vao,
             indexed: !!data.idx,
-            indexCount: data.idx ? data.idx.length : (data.count || data.pos.length / 3)
+            indexCount: data.idx ? data.idx.length : (data.count || data.pos.length / 3),
+            drawMode: drawMode !== undefined ? drawMode : (data.idx ? gl.TRIANGLES : gl.LINE_LOOP)
         };
     }
 
@@ -88,7 +90,7 @@
         geos.ring = makeVAO(programs.planet, AP2Geo.createRing(1, 1.5, 160)); // 单位环：随模型矩阵缩放
         geos.glow = makeVAO(programs.glow, AP2Geo.createBillboardQuad());
         geos.orbit = makeVAO(programs.line, { pos: AP2Geo.createCircleLine(1, 256) });
-        geos.asteroids = makeVAO(programs.points, AP2Geo.createAsteroidBelt(C.asteroidBelt.inner, C.asteroidBelt.outer, C.asteroidBelt.count));
+        geos.asteroids = makeVAO(programs.points, AP2Geo.createAsteroidBelt(C.asteroidBelt.inner, C.asteroidBelt.outer, C.asteroidBelt.count), gl.POINTS);
     }
 
     // ---------- 纹理 ----------
@@ -188,7 +190,7 @@
         if (extra) extra(u);
         gl.bindVertexArray(vao.vao);
         if (vao.indexed) gl.drawElements(gl.TRIANGLES, vao.indexCount, gl.UNSIGNED_SHORT, 0);
-        else gl.drawArrays(gl.LINE_LOOP, 0, vao.indexCount);
+        else gl.drawArrays(vao.drawMode, 0, vao.indexCount);
         gl.bindVertexArray(null);
     }
 
@@ -315,7 +317,9 @@
         } else if (vm === "geocentric") {
             const epos = scene.earthPos, mpos = scene.moonPos;
             const dir = normalize(vec3(mpos[0] - epos[0], mpos[1] - epos[1], mpos[2] - epos[2]));
-            AP2Cam.setLookAt(add(vec3(epos[0], epos[1], epos[2]), scalarmult(C.earth.radius + 0.5, dir)),
+            // 方案 A：相机移到月球外侧（沿地月连线越过月球 6 单位，略抬升俯视），
+            // 月球完整入画（张角≈11°）且自转纹理变化清晰可见，地球与白道同步入镜。
+            AP2Cam.setLookAt(add(add(mpos, scalarmult(6, dir)), vec3(0, 2.2, 0)),
                              vec3(mpos[0], mpos[1], mpos[2]));
         }
         AP2Cam.update(dt);

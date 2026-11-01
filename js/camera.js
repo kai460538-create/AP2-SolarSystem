@@ -98,7 +98,8 @@ const AP2Cam = (function () {
         const len = length(axis);
         if (len > 1e-6) {
             const ang = Math.asin(Math.min(1, len)) * 2 * 180 / Math.PI;  // 灵敏度
-            const R = rotate(ang, axis[0] / len, axis[1] / len, axis[2] / len);
+            // 轴取反：让“拖拽方向 = 场景旋转方向”（跟随鼠标，符合日常操作习惯）
+            const R = rotate(ang, -axis[0] / len, -axis[1] / len, -axis[2] / len);
             viewM = mult(R, viewM);
             extractEyeAt();
         }
