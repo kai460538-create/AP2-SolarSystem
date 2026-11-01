@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AP2 路 涓夌淮灞傜骇鍦烘櫙锛氬お闃崇郴</title>
+<title>AP2 三维层级场景：太阳系</title>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #05070f;
@@ -12,7 +12,7 @@
     #glcanvas { display: block; width: 100vw; height: 100vh; cursor: grab; }
     #glcanvas.dragging { cursor: grabbing; }
 
-    /* ---------- 鏍囬 ---------- */
+    /* ---------- 标题 ---------- */
     #title {
         position: fixed; top: 14px; left: 14px; z-index: 5;
         font-size: 16px; font-weight: 600; letter-spacing: 1px;
@@ -32,7 +32,7 @@
     }
     #hud div b { color: #ffd27a; }
 
-    /* ---------- 鍙傛暟闈㈡澘 ---------- */
+    /* ---------- 参数面板 ---------- */
     #panel {
         position: fixed; right: 14px; top: 14px; z-index: 6; width: 252px;
         background: rgba(10, 14, 30, .72); border: 1px solid rgba(120, 160, 255, .2);
@@ -70,7 +70,7 @@
     .kbd { display: inline-block; min-width: 18px; text-align: center; padding: 1px 5px; font-size: 11px;
         background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.2); border-radius: 4px; margin-left: 6px; }
 
-    /* ---------- 甯姪 ---------- */
+    /* ---------- 帮助 ---------- */
     #helpBox {
         position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
         background: rgba(3, 6, 14, .66); backdrop-filter: blur(4px);
@@ -89,66 +89,68 @@
 
 <canvas id="glcanvas"></canvas>
 
-<!-- 鏍囬 -->
-<div id="title">涓夌淮灞傜骇鍦烘櫙 路 <span>澶槼绯?/span></div>
+<!-- 标题 -->
+<div id="title">三维层级场景 · <span>太阳系</span></div>
 
-<!-- HUD 鐘舵€?-->
+<!-- HUD 状态 -->
 <div id="hud"></div>
 
-<!-- 鍙傛暟闈㈡澘 -->
+<!-- 参数面板 -->
 <div id="panel">
-    <h2>鍙傛暟闈㈡澘</h2>
+    <h2>参数面板</h2>
 
-    <div class="row"><label>鍏浆閫熷害</label><span class="val" id="slOrbitSpeedVal"></span></div>
+    <div class="row"><label>公转速度</label><span class="val" id="slOrbitSpeedVal"></span></div>
     <input type="range" id="slOrbitSpeed" min="0.1" max="5" step="0.1" value="1">
 
-    <div class="row"><label>鑷浆閫熷害</label><span class="val" id="slSpinSpeedVal"></span></div>
+    <div class="row"><label>自转速度</label><span class="val" id="slSpinSpeedVal"></span></div>
     <input type="range" id="slSpinSpeed" min="0.1" max="5" step="0.1" value="1">
 
-    <div class="row"><label>鍦扮悆杞村€捐 (掳)</label><span class="val" id="slTiltVal"></span></div>
+    <div class="row"><label>地球轴倾角 (°)</label><span class="val" id="slTiltVal"></span></div>
     <input type="range" id="slTilt" min="0" max="45" step="0.5" value="23.5">
 
     <div class="group">
-        <label class="chk"><input type="checkbox" id="ckOrbits" checked> 杞ㄩ亾绾?/label>
-        <label class="chk"><input type="checkbox" id="ckAsteroids" checked> 灏忚鏄熷甫</label>
-        <label class="chk"><input type="checkbox" id="ckRings" checked> 鍦熸槦鐜?/label>
-        <label class="chk"><input type="checkbox" id="ckGlow" checked> 澶槼鍏夋檿</label>
+        <label class="chk"><input type="checkbox" id="ckOrbits" checked> 轨道线</label>
+        <label class="chk"><input type="checkbox" id="ckAsteroids" checked> 小行星带</label>
+        <label class="chk"><input type="checkbox" id="ckRings" checked> 土星环</label>
+        <label class="chk"><input type="checkbox" id="ckGlow" checked> 太阳光晕</label>
     </div>
 
     <div class="group">
-        <button class="btn" id="btnProjection">鎶曞奖锛氶€忚</button>
-        <button class="btn" id="btnOrbit">婕父锛氭殏鍋?/ 缁х画</button>
-        <button class="btn" id="btnReset">閲嶇疆瑙嗚</button>
+        <button class="btn" id="btnProjection">投影：透视</button>
+        <button class="btn" id="btnOrbit">漫游：暂停 / 继续</button>
+        <button class="btn" id="btnReset">重置视角</button>
     </div>
 
     <div class="group">
         <div class="btn-group">
-            <button class="btn" id="btnViewFree">鑷敱</button>
-            <button class="btn" id="btnViewHelio">鏃ュ績</button>
-            <button class="btn" id="btnViewGeo">鍦板績</button>
+            <button class="btn" id="btnViewFree">自由</button>
+            <button class="btn" id="btnViewHelio">日心</button>
+            <button class="btn" id="btnViewGeo">地心</button>
         </div>
     </div>
 </div>
 
-<!-- 甯姪娴眰 -->
+<!-- 帮助浮层 -->
 <div id="helpBox" class="hidden">
     <div class="card">
-        <h3>鎿嶄綔璇存槑</h3>
+        <h3>操作说明</h3>
         <table>
-            <tr><td>榧犳爣鎷栨嫿</td><td>铏氭嫙杞ㄨ抗鐞冩棆杞瑙掞紙浠绘剰鏂瑰悜锛?/td></tr>
-            <tr><td>婊氳疆</td><td>缂╂斁锛堟部瑙嗙嚎杩涢€€锛?/td></tr>
-            <tr><td><b>绌烘牸</b></td><td>鏆傚仠 / 缁х画鐜粫婕父</td></tr>
-            <tr><td><b>O</b></td><td>鍒囨崲 閫忚 / 姝ｄ氦 鎶曞奖</td></tr>
-            <tr><td><b>1 / 2 / 3</b></td><td>瑙嗙偣锛氳嚜鐢?/ 鏃ュ績锛堣鏈堥锛? 鍦板績锛堣鏃ラ锛?/td></tr>
-            <tr><td><b>R</b></td><td>閲嶇疆瑙嗚</td></tr>
-            <tr><td><b>H</b></td><td>鎵撳紑 / 鍏抽棴鏈府鍔?/td></tr>
+            <tr><td>鼠标拖拽</td><td>虚拟轨迹球旋转视角（任意方向）</td></tr>
+            <tr><td>滚轮</td><td>缩放（沿视线进退）</td></tr>
+            <tr><td><b>空格</b></td><td>暂停 / 继续环绕漫游</td></tr>
+            <tr><td><b>O</b></td><td>切换 透视 / 正交 投影</td></tr>
+            <tr><td><b>1 / 2 / 3</b></td><td>视点：自由 / 日心（观月食）/ 地心（观日食）</td></tr>
+            <tr><td><b>R</b></td><td>重置视角</td></tr>
+            <tr><td><b>H</b></td><td>打开 / 关闭本帮助</td></tr>
         </table>
         <div class="tip">
-            灞傜骇锛氬お闃?鈫?鍦扮悆锛堣嚜杞酱鍊?23.5掳锛屽厛杞悗鎸傦級鈫?鏈堢悆锛堢櫧閬撻潰鍊?5.145掳锛屾墜鍔ㄧ煩闃垫瀯閫狅級銆?            宸﹂敭鎷栨嫿浼氳嚜鍔ㄦ殏鍋滄极娓革紝绌烘牸鍙殢鏃舵仮澶嶃€?        </div>
+            层级：太阳 → 地球（自转轴倾角 23.5°，先转后挂）→ 月球（白道面倾角 5.145°，手动矩阵构建）。
+            左键拖拽会自动暂停漫游，空格可随时恢复。
+        </div>
     </div>
 </div>
 
-<!-- 鐫€鑹插櫒锛氱汗鐞嗗ぉ浣擄紙澶槼 / 琛屾槦 / 鏈堢悆 / 鍦熸槦鐜?/ 鏄熺┖鑳屾櫙锛?-->
+<!-- 着色器：纹理天体（太阳 / 行星 / 月球 / 土星环 / 星空背景）-->
 <script type="x-shader/x-vertex" id="vs-planet">
 #version 300 es
 in vec3 aPos;
@@ -174,7 +176,7 @@ void main() {
 }
 </script>
 
-<!-- 鐫€鑹插櫒锛氳建閬撶嚎 -->
+<!-- 着色器：轨道线 -->
 <script type="x-shader/x-vertex" id="vs-line">
 #version 300 es
 in vec3 aPos;
@@ -198,7 +200,7 @@ void main() {
 }
 </script>
 
-<!-- 鐫€鑹插櫒锛氬皬琛屾槦甯︼紙鍦嗗舰鐐圭簿鐏碉級 -->
+<!-- 着色器：小行星带（圆形点精灵） -->
 <script type="x-shader/x-vertex" id="vs-points">
 #version 300 es
 in vec3 aPos;
@@ -230,7 +232,7 @@ void main() {
 }
 </script>
 
-<!-- 鐫€鑹插櫒锛氬お闃冲厜鏅?billboard -->
+<!-- 着色器：太阳光晕 (billboard) -->
 <script type="x-shader/x-vertex" id="vs-glow">
 #version 300 es
 in vec3 aPos;
@@ -258,10 +260,10 @@ void main() {
 }
 </script>
 
-<!-- 宸ュ叿搴?-->
+<!-- 工具库 -->
 <script src="Common/MV.js?v=11"></script>
 <script src="Common/initShaders.js?v=11"></script>
-<!-- 妯″潡 -->
+<!-- 模块 -->
 <script src="js/config.js?v=11"></script>
 <script src="js/geometry.js?v=11"></script>
 <script src="js/textures.js?v=11"></script>
