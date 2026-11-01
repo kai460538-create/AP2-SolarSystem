@@ -22,7 +22,7 @@ npx serve .
 
 > 注意：请勿直接双击 `index.html`（`file://` 协议），WebGL 纹理加载与跨域行为在 `file://` 下不稳定，必须通过 HTTP 访问。
 
-**在线体验（公网 URL）**：[部署后填写]
+**在线体验（公网 URL）**：https://kai460538-create.github.io/AP2-SolarSystem/
 
 ---
 
