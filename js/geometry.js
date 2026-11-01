@@ -55,16 +55,17 @@ const AP2Geo = (function () {
     }
 
     // 土星环：环形三角带。
-    // UV 约定：u = 径向（内环 0 → 外环 1），v = 周向（0→1 沿环一周）。
-    // 与 2k_saturn_ring_alpha.png（横向=径向展开）的 uv 排布一致。
+    // UV 约定：u = 周向（0→1 沿环一周），v = 径向（内环 0 → 外环 1）。
+    // 与 2k_saturn_ring_alpha.png（横向=周向展开，纵向=径向内→外）一致：
+    // 环带贴图透明区分布在纵向，若 u/v 反置会导致 alpha 沿周向错乱、环几乎不可见。
     function createRing(inner, outer, segments) {
         segments = segments || 128;
         const pos = [], uv = [], idx = [];
         for (let j = 0; j <= segments; j++) {
             const t = j * 2 * Math.PI / segments;
-            const v = j / segments;
-            pos.push(inner * Math.sin(t), 0, inner * Math.cos(t)); uv.push(0, v);
-            pos.push(outer * Math.sin(t), 0, outer * Math.cos(t)); uv.push(1, v);
+            const u = j / segments;               // 周向进度
+            pos.push(inner * Math.sin(t), 0, inner * Math.cos(t)); uv.push(u, 0);
+            pos.push(outer * Math.sin(t), 0, outer * Math.cos(t)); uv.push(u, 1);
         }
         for (let j = 0; j < segments; j++) {
             const a = j * 2, b = j * 2 + 1, c = j * 2 + 2, d = j * 2 + 3;

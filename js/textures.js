@@ -23,12 +23,15 @@ const AP2Tex = (function () {
     }
 
     // 将 Image 上传为 WebGL 纹理
-    function imageToTexture(gl, img) {
+    // useAlpha=true 时按 RGBA 上传（土星环 PNG 带透明通道；错误地用 RGB 上传会丢弃 alpha，
+    // 导致环变成不透明黑色条带）
+    function imageToTexture(gl, img, useAlpha) {
         const tex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tex);
         // 关键：翻转 Y —— 解决纹理上下颠倒问题（见文件头注释）
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+        const fmt = useAlpha ? gl.RGBA : gl.RGB;
+        gl.texImage2D(gl.TEXTURE_2D, 0, fmt, fmt, gl.UNSIGNED_BYTE, img);
         // mipmap + 线性过滤
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -40,7 +43,8 @@ const AP2Tex = (function () {
     }
 
     function loadTexture(gl, url) {
-        return loadImage(url).then(img => imageToTexture(gl, img));
+        // PNG 一般带透明通道 → RGBA；JPEG → RGB
+        return loadImage(url).then(img => imageToTexture(gl, img, /\.png$/i.test(url)));
     }
 
     // 批量加载：{ name: url } → Promise<{ name: WebGLTexture }>

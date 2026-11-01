@@ -171,8 +171,8 @@
             };
         });
 
-        // —— 小行星带（整体缓慢公转）——
-        out.asteroidModel = rotate((t % 360) * 0.05 * s.orbitSpeed, 0, 1, 0);
+        // —— 小行星带（整体缓慢公转；去掉 %360 防止周期末跳变）——
+        out.asteroidModel = rotate(simTime * 0.05 * s.orbitSpeed, 0, 1, 0);
 
         // 位置提取（供 E2 视点与日月食判定）
         out.earthPos = [earthOrbitM[12], earthOrbitM[13], earthOrbitM[14]];
@@ -181,11 +181,11 @@
     }
 
     // ---------- 绘制工具 ----------
-    function draw(progKey, vao, model, extra) {
+    function draw(progKey, vao, model, extra, viewOverride) {
         const p = programs[progKey], u = programs.u[progKey];
         gl.useProgram(p);
         gl.uniformMatrix4fv(u.uProj, false, projCache);
-        gl.uniformMatrix4fv(u.uView, false, viewCache);
+        gl.uniformMatrix4fv(u.uView, false, viewOverride || viewCache);
         gl.uniformMatrix4fv(u.uModel, false, model);
         if (extra) extra(u);
         gl.bindVertexArray(vao.vao);
@@ -211,9 +211,18 @@
     }
 
     // ---------- 各对象绘制 ----------
+    // 星空背景（静态天幕）：用“只含旋转的视图”（去掉平移列）绘制——
+    // 球心保持在原点、半径 620，星空方向只随视线旋转、不随漫游平移；
+    // 同时球面最近点 ≈620 远大于场景尺度，不会遮挡天体。
     function drawBackground() {
+        const v = viewCache;
+        const vr = mat4();
+        vr[0] = v[0]; vr[1] = v[1]; vr[2] = v[2];
+        vr[4] = v[4]; vr[5] = v[5]; vr[6] = v[6];
+        vr[8] = v[8]; vr[9] = v[9]; vr[10] = v[10];
+        vr[15] = 1;
         gl.disable(gl.CULL_FACE);
-        draw("planet", geos.bg, scale(620, 620, 620), u => bindTex(u, tex.stars));
+        draw("planet", geos.bg, scale(620, 620, 620), u => bindTex(u, tex.stars), vr);
     }
 
     function drawSun(scene) {
@@ -236,9 +245,10 @@
             draw("planet", geos.sphere, pl.model, u => { bindTex(u, tex[pl.name === "地球" ? "earth" : pl.name === "土星" ? "saturn" : keyOf(pl.name)]); gl.uniform1f(u.uBright, 1.0); });
             if (pl.ring && AP2State.showRings && ringTex) {
                 // 土星环：挂在土星位置与赤道面（倾角）上，不随自转旋转；
-                // 环几何为“单位环”(inner=1, outer=1.5)，scale(inner) 后即实际内外径
-                const ringScaleModel = mult(pl.orbitM, mult(rotate(pl.tilt, 1, 0, 0),
-                    scale(pl.ring.inner, pl.ring.inner, pl.ring.inner)));
+                // 环几何为“单位环”(inner=1, outer=1.5)，ringModel 已含轨道+倾角，
+                // scale(inner) 后即实际内外径
+                const ringScaleModel = mult(pl.ringModel,
+                    scale(pl.ring.inner, pl.ring.inner, pl.ring.inner));
                 gl.enable(gl.BLEND);
                 gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
                 gl.depthMask(false);
@@ -263,17 +273,15 @@
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.lineWidth(1);
-        // 各行星轨道
+        // 各行星轨道线（统一受面板“轨道线”开关控制）
         scene.planets.forEach(pl => {
             draw("line", geos.orbit, scale(pl.orbit, pl.orbit, pl.orbit),
                 u => gl.uniform4f(u.uColor, col[0], col[1], col[2], col[3]));
         });
-        // 地球轨道（与行星列表中地球重复，此处用地球配置再画一次以确保主系统轨道可见）
+        // 地球主轨道（与行星列表中的地球重复绘制，确保主系统轨道始终可见）
         draw("line", geos.orbit, scale(C.earth.orbitDist, C.earth.orbitDist, C.earth.orbitDist),
             u => gl.uniform4f(u.uColor, 0.45, 0.75, 1.0, 0.6));
-        // 月球白道（倾斜轨道，跟随地球）
-        draw("line", geos.orbit, scene.moonOrbitM,
-            u => gl.uniform4f(u.uColor, 1.0, 0.8, 0.45, 0.55));
+        // 注：不再绘制月球白道线（避免“绕月球一圈”的误导；行星轨道线统一受开关控制）
         gl.disable(gl.BLEND);
     }
 
@@ -304,9 +312,20 @@
     }
 
     // ---------- 主循环 ----------
+    let simTime = 0;   // 模拟时间：暂停（空格）时不推进 → 天体公转/自转与相机漫游全部停止
+    window.__simTime = () => simTime;   // 调试/验证用只读接口
     function render(t, dt) {
         const s = AP2State;
-        const scene = computeScene(t);
+        if (!s.paused) simTime += dt;   // 全局暂停：时间冻结，场景与相机都不动
+        const scene = computeScene(simTime);
+        window.__scene = scene;   // 调试/验证用只读接口
+        window.__debugRing = () => {
+            const pl = scene.planets.find(p => p.name === "土星");
+            return JSON.stringify({ hasRing: !!pl && !!pl.ring, showRings: AP2State.showRings,
+                texRing: !!tex.ring, geosRing: !!geos.ring,
+                tilt: pl && pl.ring ? pl.tilt : null, inner: pl && pl.ring ? pl.ring.inner : null,
+                orbit: pl ? pl.orbitM.slice(12, 15) : null });
+        };
 
         // E2 视点驱动
         const vm = AP2Cam.getViewMode();
@@ -322,7 +341,7 @@
             AP2Cam.setLookAt(add(add(mpos, scalarmult(6, dir)), vec3(0, 2.2, 0)),
                              vec3(mpos[0], mpos[1], mpos[2]));
         }
-        AP2Cam.update(dt);
+        AP2Cam.update(s.paused ? 0 : dt);   // 暂停时相机漫游也冻结
 
         viewCache = AP2Cam.view();
         projCache = AP2Cam.projectionMatrix(aspect);
@@ -340,7 +359,7 @@
 
         AP2UI.updateHud({
             projection: AP2Cam.getProjection(),
-            mode: AP2Cam.isOrbiting() ? "orbit" : "manual",
+            mode: s.paused ? "paused" : (AP2Cam.isOrbiting() ? "orbit" : "manual"),
             viewMode: AP2Cam.getViewMode(),
             eclipse: eclipseInfo(scene)
         });

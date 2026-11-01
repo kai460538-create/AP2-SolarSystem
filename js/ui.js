@@ -11,7 +11,9 @@ const AP2State = {
     showOrbits: true,
     showAsteroids: true,
     showRings: true,
-    showGlow: true
+    showGlow: true,
+    paused: false,          // 全局暂停（空格）：时间冻结，天体公转/自转与相机漫游全部停止
+    _wasOrbiting: false     // 暂停前是否处于漫游（恢复时还原）
 };
 
 const AP2UI = (function () {
@@ -51,7 +53,7 @@ const AP2UI = (function () {
             document.getElementById("btnProjection").textContent =
                 p === "perspective" ? "投影：透视" : "投影：正交";
         });
-        bindButton("btnOrbit", () => { AP2Cam.toggleOrbit(); });
+        bindButton("btnOrbit", () => togglePause());
         bindButton("btnReset", () => { AP2Cam.reset(); });
 
         // E2 视点切换
@@ -66,7 +68,7 @@ const AP2UI = (function () {
         // ---------- 键盘 ----------
         window.addEventListener("keydown", e => {
             const k = e.key.toLowerCase();
-            if (k === " ") { e.preventDefault(); AP2Cam.toggleOrbit(); }
+            if (k === " ") { e.preventDefault(); togglePause(); }
             else if (k === "o") { document.getElementById("btnProjection").click(); }
             else if (k === "r") { AP2Cam.reset(); }
             else if (k === "h") { toggleHelp(); }
@@ -116,6 +118,24 @@ const AP2UI = (function () {
         canvas.addEventListener("touchend", () => { down = false; AP2Cam.trackballEnd(); });
 
         syncViewButtons("free");
+        syncPauseButton();
+    }
+
+    // 全局暂停：冻结模拟时间（天体与相机全停）。恢复时若暂停前处于漫游则继续漫游。
+    function togglePause() {
+        AP2State.paused = !AP2State.paused;
+        if (AP2State.paused) {
+            AP2State._wasOrbiting = AP2Cam.isOrbiting();
+            AP2Cam.pauseOrbit();
+        } else if (AP2State._wasOrbiting) {
+            AP2Cam.resumeOrbit();
+        }
+        syncPauseButton();
+    }
+
+    function syncPauseButton() {
+        const b = document.getElementById("btnOrbit");
+        if (b) b.textContent = AP2State.paused ? "已暂停：继续" : "漫游：暂停 / 继续";
     }
 
     function syncViewButtons(m) {
@@ -133,9 +153,11 @@ const AP2UI = (function () {
     // info: { projection, mode, viewMode, eclipse }
     function updateHud(info) {
         if (!hud) return;
+        const modeText = info.mode === "paused" ? "已暂停（全停）"
+                       : info.mode === "orbit" ? "漫游中" : "手动";
         const lines = [
             `投影：${info.projection === "perspective" ? "透视" : "正交"}  [O 切换]`,
-            `相机：${info.mode === "orbit" ? "漫游中" : "手动"}  [空格]`,
+            `相机：${modeText}  [空格]`,
             `视点：${info.viewMode === "free" ? "自由" : info.viewMode === "heliocentric" ? "日心" : "地心"}  [1/2/3]`
         ];
         if (info.eclipse) lines.push(`日月食：${info.eclipse}`);

@@ -58,6 +58,9 @@ const AP2Cam = (function () {
     // 暂停漫游（鼠标接管时调用）
     function pauseOrbit() { if (mode === "orbit") mode = "manual"; }
 
+    // 恢复漫游（全局暂停恢复时调用；保持当前视点模式）
+    function resumeOrbit() { mode = "orbit"; }
+
     // ---------- 投影 ----------
     function toggleProjection() {
         projection = projection === "perspective" ? "ortho" : "perspective";
@@ -91,17 +94,36 @@ const AP2Cam = (function () {
         pauseOrbit();
         dragSphere = mapToSphere(x, y);
     }
+
+    // 轨迹球（E3）——按“查看器”直觉实现：
+    // 旋转作用在【眼点绕目标点 at】上（而非相机系原地旋转）：
+    //   向右拖 → 相机绕目标向左转 → 场景内容向右移动（跟手）
+    //   向上拖 → 相机绕水平轴降低 → 场景内容向上移动（跟手）
+    // 旋转轴取拖拽两点的球面叉积（教材 Virtual Trackball 思想，无万向锁），
+    // 轴先由相机系转回世界系再旋转 eye。
     function trackballMove(x, y) {
         if (!dragSphere) return;
         const p1 = mapToSphere(x, y);
         const axis = cross(dragSphere, p1);
         const len = length(axis);
         if (len > 1e-6) {
-            const ang = Math.asin(Math.min(1, len)) * 2 * 180 / Math.PI;  // 灵敏度
-            // 轴取反：让“拖拽方向 = 场景旋转方向”（跟随鼠标，符合日常操作习惯）
-            const R = rotate(ang, -axis[0] / len, -axis[1] / len, -axis[2] / len);
-            viewM = mult(R, viewM);
-            extractEyeAt();
+            const ang = Math.asin(Math.min(1, len)) * 2 * 180 / Math.PI;
+            // 相机系轴 → 世界系（view 矩阵旋转部分 R_view，列主序：w = R_view · axis）
+            const v = viewM;
+            const wx = v[0] * axis[0] + v[4] * axis[1] + v[8] * axis[2];
+            const wy = v[1] * axis[0] + v[5] * axis[1] + v[9] * axis[2];
+            const wz = v[2] * axis[0] + v[6] * axis[1] + v[10] * axis[2];
+            // 方向标定（实测）：俯仰由轴的水平分量 wx 控制（不取反→上拖内容上移），
+            // 水平由竖直分量 wy 控制（取反→右拖内容右移）；wz 绕视线，影响微弱。
+            const R = rotate(ang, wx, -wy, wz);
+            const off = subtract(eye, at);
+            const ro = vec3(
+                R[0] * off[0] + R[4] * off[1] + R[8] * off[2],
+                R[1] * off[0] + R[5] * off[1] + R[9] * off[2],
+                R[2] * off[0] + R[6] * off[1] + R[10] * off[2]);
+            eye = add(at, ro);
+            rebuildView();
+            dist = length(subtract(eye, at));
         }
         dragSphere = p1;
     }
@@ -154,7 +176,7 @@ const AP2Cam = (function () {
     }
 
     return {
-        update, toggleOrbit, isOrbiting, pauseOrbit,
+        update, toggleOrbit, isOrbiting, pauseOrbit, resumeOrbit,
         toggleProjection, getProjection, projectionMatrix, view,
         trackballStart, trackballMove, trackballEnd, zoom,
         setViewMode, getViewMode, setLookAt, reset,
