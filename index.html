@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP2 · 三维层级场景：太阳系</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #05070f;
+        font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; color: #e6edf7; }
+
+    #glcanvas { display: block; width: 100vw; height: 100vh; cursor: grab; }
+    #glcanvas.dragging { cursor: grabbing; }
+
+    /* ---------- 标题 ---------- */
+    #title {
+        position: fixed; top: 14px; left: 14px; z-index: 5;
+        font-size: 16px; font-weight: 600; letter-spacing: 1px;
+        color: #cfd9ee; text-shadow: 0 1px 4px rgba(0,0,0,.7);
+        background: rgba(10, 14, 30, .55); padding: 8px 14px; border-radius: 8px;
+        border: 1px solid rgba(120, 160, 255, .18); backdrop-filter: blur(6px);
+    }
+    #title span { color: #7fb0ff; }
+
+    /* ---------- HUD ---------- */
+    #hud {
+        position: fixed; left: 14px; top: 66px; z-index: 5;
+        font-size: 12.5px; line-height: 1.9; letter-spacing: .3px;
+        background: rgba(10, 14, 30, .62); padding: 10px 14px; border-radius: 8px;
+        border: 1px solid rgba(120, 160, 255, .16); backdrop-filter: blur(6px);
+        min-width: 215px;
+    }
+    #hud div b { color: #ffd27a; }
+
+    /* ---------- 参数面板 ---------- */
+    #panel {
+        position: fixed; right: 14px; top: 14px; z-index: 6; width: 252px;
+        background: rgba(10, 14, 30, .72); border: 1px solid rgba(120, 160, 255, .2);
+        border-radius: 12px; padding: 14px 16px; backdrop-filter: blur(8px);
+        box-shadow: 0 8px 28px rgba(0,0,0,.5); user-select: none;
+    }
+    #panel h2 { font-size: 14px; font-weight: 600; color: #9db8ff; margin-bottom: 12px;
+        letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+    #panel h2::before { content: ""; width: 4px; height: 14px; background: #4f83ff; border-radius: 2px; }
+
+    .group { border-top: 1px solid rgba(120,160,255,.14); padding-top: 10px; margin-top: 10px; }
+    .row { display: flex; align-items: center; justify-content: space-between; margin: 9px 0; }
+    .row label { font-size: 12.5px; color: #c6d3ec; }
+    .row .val { font-size: 11.5px; color: #ffd27a; min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+
+    input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
+        background: rgba(120,160,255,.25); border-radius: 3px; outline: none; margin: 6px 0 2px; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px;
+        border-radius: 50%; background: #5b8cff; border: 2px solid #0d1730; cursor: pointer;
+        box-shadow: 0 0 6px rgba(91,140,255,.8); }
+    input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%;
+        background: #5b8cff; border: 2px solid #0d1730; cursor: pointer; }
+
+    .chk { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 12.5px; color: #c6d3ec; cursor: pointer; }
+    .chk input { accent-color: #5b8cff; width: 15px; height: 15px; cursor: pointer; }
+
+    .btn { display: block; width: 100%; margin: 7px 0; padding: 8px 10px; font-size: 12.5px;
+        color: #dbe6ff; background: rgba(91, 140, 255, .14); border: 1px solid rgba(91,140,255,.35);
+        border-radius: 8px; cursor: pointer; letter-spacing: .5px; transition: all .15s; text-align: left; }
+    .btn:hover { background: rgba(91, 140, 255, .28); }
+    .btn:active { transform: translateY(1px); }
+    .btn.active { background: rgba(91, 140, 255, .45); border-color: #7fb0ff; color: #fff; }
+    .btn-group { display: flex; gap: 6px; }
+    .btn-group .btn { margin: 7px 0; text-align: center; padding: 8px 4px; }
+    .kbd { display: inline-block; min-width: 18px; text-align: center; padding: 1px 5px; font-size: 11px;
+        background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.2); border-radius: 4px; margin-left: 6px; }
+
+    /* ---------- 帮助 ---------- */
+    #helpBox {
+        position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+        background: rgba(3, 6, 14, .66); backdrop-filter: blur(4px);
+    }
+    #helpBox.hidden { display: none; }
+    #helpBox .card { background: rgba(14, 20, 40, .95); border: 1px solid rgba(120,160,255,.3);
+        border-radius: 14px; padding: 24px 30px; max-width: 480px; box-shadow: 0 12px 48px rgba(0,0,0,.6); }
+    #helpBox h3 { color: #9db8ff; margin-bottom: 14px; font-size: 15px; letter-spacing: 1px; }
+    #helpBox table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    #helpBox td { padding: 6px 8px; border-bottom: 1px solid rgba(120,160,255,.1); color: #c6d3ec; }
+    #helpBox td:first-child { white-space: nowrap; color: #ffd27a; width: 40%; }
+    #helpBox .tip { margin-top: 12px; font-size: 12px; color: #8fa3c9; line-height: 1.8; }
+</style>
+</head>
+<body>
+
+<canvas id="glcanvas"></canvas>
+
+<!-- 标题 -->
+<div id="title">三维层级场景 · <span>太阳系</span></div>
+
+<!-- HUD 状态 -->
+<div id="hud"></div>
+
+<!-- 参数面板 -->
+<div id="panel">
+    <h2>参数面板</h2>
+
+    <div class="row"><label>公转速度</label><span class="val" id="slOrbitSpeedVal"></span></div>
+    <input type="range" id="slOrbitSpeed" min="0.1" max="5" step="0.1" value="1">
+
+    <div class="row"><label>自转速度</label><span class="val" id="slSpinSpeedVal"></span></div>
+    <input type="range" id="slSpinSpeed" min="0.1" max="5" step="0.1" value="1">
+
+    <div class="row"><label>地球轴倾角 (°)</label><span class="val" id="slTiltVal"></span></div>
+    <input type="range" id="slTilt" min="0" max="45" step="0.5" value="23.5">
+
+    <div class="group">
+        <label class="chk"><input type="checkbox" id="ckOrbits" checked> 轨道线</label>
+        <label class="chk"><input type="checkbox" id="ckAsteroids" checked> 小行星带</label>
+        <label class="chk"><input type="checkbox" id="ckRings" checked> 土星环</label>
+        <label class="chk"><input type="checkbox" id="ckGlow" checked> 太阳光晕</label>
+    </div>
+
+    <div class="group">
+        <button class="btn" id="btnProjection">投影：透视</button>
+        <button class="btn" id="btnOrbit">漫游：暂停 / 继续</button>
+        <button class="btn" id="btnReset">重置视角</button>
+    </div>
+
+    <div class="group">
+        <div class="btn-group">
+            <button class="btn" id="btnViewFree">自由</button>
+            <button class="btn" id="btnViewHelio">日心</button>
+            <button class="btn" id="btnViewGeo">地心</button>
+        </div>
+    </div>
+</div>
+
+<!-- 帮助浮层 -->
+<div id="helpBox" class="hidden">
+    <div class="card">
+        <h3>操作说明</h3>
+        <table>
+            <tr><td>鼠标拖拽</td><td>虚拟轨迹球旋转视角（任意方向）</td></tr>
+            <tr><td>滚轮</td><td>缩放（沿视线进退）</td></tr>
+            <tr><td><b>空格</b></td><td>暂停 / 继续环绕漫游</td></tr>
+            <tr><td><b>O</b></td><td>切换 透视 / 正交 投影</td></tr>
+            <tr><td><b>1 / 2 / 3</b></td><td>视点：自由 / 日心（观月食）/ 地心（观日食）</td></tr>
+            <tr><td><b>R</b></td><td>重置视角</td></tr>
+            <tr><td><b>H</b></td><td>打开 / 关闭本帮助</td></tr>
+        </table>
+        <div class="tip">
+            层级：太阳 → 地球（自转轴倾 23.5°，先转后挂）→ 月球（白道面倾 5.145°，手动矩阵构造）。
+            左键拖拽会自动暂停漫游，空格可随时恢复。
+        </div>
+    </div>
+</div>
+
+<!-- 着色器：纹理天体（太阳 / 行星 / 月球 / 土星环 / 星空背景） -->
+<script type="x-shader/x-vertex" id="vs-planet">
+#version 300 es
+in vec3 aPos;
+in vec2 aUV;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform mat4 uModel;
+out vec2 vUV;
+void main() {
+    gl_Position = uProj * uView * uModel * vec4(aPos, 1.0);
+    vUV = aUV;
+}
+</script>
+<script type="x-shader/x-fragment" id="fs-planet">
+#version 300 es
+precision highp float;
+in vec2 vUV;
+uniform sampler2D uTex;
+uniform float uBright;
+out vec4 fragColor;
+void main() {
+    fragColor = texture(uTex, vUV) * uBright;
+}
+</script>
+
+<!-- 着色器：轨道线 -->
+<script type="x-shader/x-vertex" id="vs-line">
+#version 300 es
+in vec3 aPos;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform mat4 uModel;
+out vec4 vColor;
+void main() {
+    gl_Position = uProj * uView * uModel * vec4(aPos, 1.0);
+    vColor = vec4(1.0);
+}
+</script>
+<script type="x-shader/x-fragment" id="fs-line">
+#version 300 es
+precision mediump float;
+in vec4 vColor;
+uniform vec4 uColor;
+out vec4 fragColor;
+void main() {
+    fragColor = uColor;
+}
+</script>
+
+<!-- 着色器：小行星带（圆形点精灵） -->
+<script type="x-shader/x-vertex" id="vs-points">
+#version 300 es
+in vec3 aPos;
+in float aSize;
+in vec3 aColor;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform mat4 uModel;
+uniform float uPointScale;
+out vec3 vColor;
+void main() {
+    vec4 p = uProj * uView * uModel * vec4(aPos, 1.0);
+    gl_Position = p;
+    gl_PointSize = clamp(aSize * uPointScale / max(p.w, 1e-6), 1.0, 12.0);
+    vColor = aColor;
+}
+</script>
+<script type="x-shader/x-fragment" id="fs-points">
+#version 300 es
+precision mediump float;
+in vec3 vColor;
+out vec4 fragColor;
+void main() {
+    vec2 c = gl_PointCoord - vec2(0.5);
+    float d = length(c);
+    if (d > 0.5) discard;
+    float a = smoothstep(0.5, 0.32, d);
+    fragColor = vec4(vColor, a);
+}
+</script>
+
+<!-- 着色器：太阳光晕 billboard -->
+<script type="x-shader/x-vertex" id="vs-glow">
+#version 300 es
+in vec3 aPos;
+in vec2 aUV;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform mat4 uModel;
+out vec2 vUV;
+void main() {
+    vUV = aUV;
+    gl_Position = uProj * uView * uModel * vec4(aPos, 1.0);
+}
+</script>
+<script type="x-shader/x-fragment" id="fs-glow">
+#version 300 es
+precision mediump float;
+in vec2 vUV;
+uniform vec3 uColor;
+out vec4 fragColor;
+void main() {
+    vec2 c = vUV * 2.0 - 1.0;
+    float d = length(c);
+    float a = pow(max(0.0, 1.0 - d), 2.4);
+    fragColor = vec4(uColor, a * 0.55);
+}
+</script>
+
+<!-- 工具库 -->
+<script src="Common/MV.js"></script>
+<script src="Common/initShaders.js"></script>
+<!-- 模块 -->
+<script src="js/config.js"></script>
+<script src="js/geometry.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
