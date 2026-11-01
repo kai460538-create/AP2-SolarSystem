@@ -36,7 +36,7 @@ const AP2_CONFIG = {
     // —— 其余行星（水星…海王星），E1 选做 ——
     planets: [
         { name: "水星", radius: 1.1,  orbit: 18,  period: 5,    spin: 20, tilt: 0.03,  texture: "textures/2k_mercury.jpg" },
-        { name: "金星", radius: 2.0,  orbit: 24,  period: 8,    spin: -55, tilt: 3.0,   texture: "textures/2k_venus_surface.jpg" },
+        { name: "金星", radius: 2.0,  orbit: 24,  period: 8,    spin: -6,  tilt: 3.0,   texture: "textures/2k_venus_surface.jpg" },  // spin 为负 → 逆行自转（真实金星自转方向与公转相反）；演示中公转 8s/圈=45°/s，故自转取 -6s/圈=60°/s 逆行，净效果才表现为逆行，否则会被公转淹没而看似顺行
         { name: "地球", radius: 2.2,  orbit: 32,  period: 12,   spin: 3,   tilt: 23.5,  texture: "textures/2k_earth_daymap.jpg" },
         { name: "火星", radius: 1.5,  orbit: 42,  period: 18,   spin: 4,   tilt: 25.19, texture: "textures/2k_mars.jpg" },
         { name: "木星", radius: 4.8,  orbit: 66,  period: 45,   spin: 2,   tilt: 3.13,  texture: "textures/2k_jupiter.jpg" },
